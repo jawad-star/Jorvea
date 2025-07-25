@@ -19,6 +19,12 @@ export default function AuthGuard({ children }: AuthGuardProps) {
       } else if (!user?.emailVerified) {
         // Redirect to email verification if user is not verified
         router.replace('/email-verification');
+      } else {
+        // User is authenticated and verified - ensure they can't go back to auth screens
+        // Reset the navigation stack to prevent going back
+        if (router.canGoBack()) {
+          router.replace('/');
+        }
       }
     }
   }, [user, isLoading, isAuthenticated]);

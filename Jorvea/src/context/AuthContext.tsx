@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { User } from 'firebase/auth';
-import { onAuthStateChange, checkStoredAuth, getStoredUserData } from '../services/authService';
+import { onAuthStateChange, checkStoredAuth, getStoredUserData, logoutUser } from '../services/authService';
 import SplashScreen from '../components/SplashScreen';
 
 interface AuthContextType {
@@ -8,6 +8,7 @@ interface AuthContextType {
   isLoading: boolean;
   isAuthenticated: boolean;
   setUser: (user: User | null) => void;
+  logout: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -59,11 +60,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     };
   }, []);
 
+  const logout = async () => {
+    await logoutUser();
+    setUser(null);
+  };
+
   const contextValue: AuthContextType = {
     user,
     isLoading,
     isAuthenticated: !!user,
     setUser,
+    logout,
   };
 
   if (isLoading) {
