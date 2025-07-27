@@ -546,33 +546,124 @@ class MediaUploadService {
     }
   }
 
-  // Upload image to Cloudinary (alternative to Firebase Storage)
+  /**
+   * Upload Image to Cloudinary - Image Hosting Service Integration
+   * 
+   * Handles image upload and processing using Cloudinary's cloud-based image management.
+   * This method serves as an alternative to Firebase Storage for image hosting needs.
+   * 
+   * Current Implementation Strategy:
+   * - Base64 encoding for direct Firestore storage (temporary solution)
+   * - Easy migration path to full Cloudinary integration
+   * - Maintains compatibility with existing Firestore document structure
+   * - Supports immediate image display without external dependencies
+   * 
+   * Base64 Storage Benefits:
+   * - No external API dependencies or API key requirements
+   * - Immediate availability after upload completion
+   * - Simple integration with Firestore document storage
+   * - No additional hosting costs or service configurations
+   * 
+   * Base64 Storage Limitations:
+   * - Larger storage footprint (~33% size increase)
+   * - Firestore document size limits (1MB per document)
+   * - No automatic image transformations or optimizations
+   * - Limited CDN benefits for global image delivery
+   * 
+   * Future Migration Path:
+   * - Replace base64 with Cloudinary direct upload
+   * - Add automatic image transformations (resize, compress, format conversion)
+   * - Implement CDN delivery for global performance optimization
+   * - Add advanced features (face detection, auto-cropping, watermarking)
+   * 
+   * @param {MediaFile} mediaFile - Image file to upload and process
+   * @param {(progress: UploadProgress) => void} onProgress - Optional progress callback for UI updates
+   * @returns {Promise<UploadResult>} Upload result with base64 data URL
+   * @throws {Error} If image processing fails or file format is unsupported
+   * 
+   * @example
+   * ```typescript
+   * // Upload image with progress tracking
+   * const result = await uploadImageToCloudinary(imageFile, (progress) => {
+   *   console.log(`Processing: ${progress.percentage}%`);
+   * });
+   * 
+   * // Store result in Firestore
+   * await firestore.collection('posts').add({
+   *   imageUrl: result.mediaUrl, // Base64 data URL
+   *   uploadTimestamp: new Date()
+   * });
+   * ```
+   */
   private async uploadImageToCloudinary(
     mediaFile: MediaFile,
     onProgress?: (progress: UploadProgress) => void
   ): Promise<UploadResult> {
     try {
-      console.log('Uploading image to Cloudinary...');
+      // Log image processing initiation for debugging and analytics
+      console.log('🖼️ Starting image processing with Cloudinary alternative...');
+      console.log('📊 Image details:', {
+        size: mediaFile.size,
+        mimeType: mediaFile.mimeType,
+        uri: mediaFile.uri
+      });
       
-      // For now, we'll use a simple base64 approach
-      // You can replace this with Cloudinary or any other image hosting service
+      // Progress update: Starting image processing
+      if (onProgress) {
+        onProgress({
+          loaded: 10,
+          total: 100,
+          percentage: 10
+        });
+      }
       
-      // Convert to base64 for temporary storage in Firestore
+      // Convert image to base64 format for Firestore storage
+      // This provides immediate availability without external service dependencies
+      console.log('🔄 Converting image to base64 format for Firestore storage...');
       const base64 = await FileSystem.readAsStringAsync(mediaFile.uri, {
         encoding: FileSystem.EncodingType.Base64,
       });
       
-      // Create a data URL
+      // Progress update: Base64 conversion completed
+      if (onProgress) {
+        onProgress({
+          loaded: 80,
+          total: 100,
+          percentage: 80
+        });
+      }
+      
+      // Create complete data URL with proper MIME type specification
+      // This format allows direct embedding in HTML and immediate browser display
       const dataUrl = `data:${mediaFile.mimeType};base64,${base64}`;
       
-      console.log('Image converted to base64 format for Firestore storage');
+      // Progress update: Processing completed
+      if (onProgress) {
+        onProgress({
+          loaded: 100,
+          total: 100,
+          percentage: 100
+        });
+      }
       
+      console.log('✅ Image converted to base64 format for Firestore storage');
+      console.log('📏 Base64 data size:', dataUrl.length, 'characters');
+      
+      // Return successful upload result with base64 data URL
       return {
         success: true,
-        mediaUrl: dataUrl, // Base64 data URL stored directly in Firestore
+        mediaUrl: dataUrl, // Base64 data URL for direct Firestore storage
       };
     } catch (error) {
-      console.error('Error processing image:', error);
+      // Log detailed error information for debugging image processing issues
+      console.error('❌ Error processing image:', error);
+      console.error('📁 Failed image details:', {
+        size: mediaFile.size,
+        mimeType: mediaFile.mimeType,
+        uri: mediaFile.uri
+      });
+      
+      // Throw enhanced error with context for upstream error handling
       throw new Error(`Image upload failed: ${(error as Error).message}`);
     }
   }
