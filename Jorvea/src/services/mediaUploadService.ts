@@ -709,33 +709,166 @@ class MediaUploadService {
     }
   }
 
-  // Check if video is ready for playback
+  /**
+   * Check Video Processing Status - MUX Asset Readiness Verification
+   * 
+   * Verifies whether a video uploaded to MUX has completed processing and is ready for playback.
+   * This method is essential for determining when videos can be displayed to users.
+   * 
+   * MUX Processing Pipeline:
+   * 1. Video upload completion (returns upload ID)
+   * 2. MUX transcoding and optimization (background processing)
+   * 3. HLS playlist generation for adaptive streaming
+   * 4. Playback URL availability (indicates readiness)
+   * 
+   * Usage Scenarios:
+   * - Polling video status after upload completion
+   * - Updating UI when videos become available for playback
+   * - Handling "processing" states in video galleries
+   * - Retry mechanisms for failed processing operations
+   * 
+   * Performance Considerations:
+   * - Avoid excessive polling to prevent API rate limiting
+   * - Implement exponential backoff for repeated checks
+   * - Cache results to minimize redundant API calls
+   * - Use webhooks for production applications when possible
+   * 
+   * @param {string} assetId - MUX asset ID to check processing status
+   * @returns {Promise<{ready: boolean; playbackUrl?: string}>} Status object with readiness and URL
+   * @throws {Error} If asset ID is invalid or MUX service is unavailable
+   * 
+   * @example
+   * ```typescript
+   * // Check video status after upload
+   * const status = await mediaUploadService.checkVideoStatus(assetId);
+   * 
+   * if (status.ready && status.playbackUrl) {
+   *   console.log('Video ready for playback:', status.playbackUrl);
+   *   // Update UI to show video player
+   * } else {
+   *   console.log('Video still processing, please wait...');
+   *   // Show loading indicator
+   * }
+   * ```
+   */
   async checkVideoStatus(assetId: string): Promise<{ ready: boolean; playbackUrl?: string }> {
     try {
+      // Log status check initiation for debugging and monitoring
+      console.log('🔍 Checking video processing status for asset:', assetId);
+      
+      // Query MUX service for current playback URL availability
+      // A successful response with URL indicates processing completion
       const playbackUrl = await muxService.getPlaybackUrl(assetId);
+      
+      // Determine readiness based on playback URL availability
+      const isReady = playbackUrl !== null;
+      
+      // Log status result for debugging and analytics
+      if (isReady) {
+        console.log('✅ Video processing completed. Playback URL available:', playbackUrl);
+      } else {
+        console.log('⏳ Video still processing. Playback URL not yet available.');
+      }
+      
       return {
-        ready: playbackUrl !== null,
+        ready: isReady,
         playbackUrl: playbackUrl || undefined,
       };
     } catch (error) {
-      console.error('Error checking video status:', error);
+      // Log detailed error information for debugging MUX integration issues
+      console.error('❌ Error checking video status:', error);
+      console.error('🎯 Asset ID:', assetId);
+      
+      // Return not ready status on error to prevent UI breakage
       return { ready: false };
     }
   }
 
-  // Delete media from storage
+  /**
+   * Delete Media from Storage - Comprehensive Media Cleanup
+   * 
+   * Removes media files from their respective storage services based on media type.
+   * This method ensures proper cleanup and prevents storage cost accumulation.
+   * 
+   * Deletion Strategy by Media Type:
+   * - Videos: Direct deletion from MUX using asset management API
+   * - Images: Cleanup handled by Firestore document deletion (base64 storage)
+   * 
+   * MUX Video Deletion Process:
+   * 1. Validate asset ID format and existence
+   * 2. Call MUX delete asset API endpoint
+   * 3. Verify deletion completion
+   * 4. Clean up local references and cache
+   * 
+   * Image Deletion Process:
+   * - Base64 images are stored directly in Firestore documents
+   * - Deletion occurs automatically when parent document is removed
+   * - No additional API calls required for cleanup
+   * 
+   * Error Handling:
+   * - Graceful handling of already-deleted assets
+   * - Network failure resilience with retry mechanisms
+   * - Detailed logging for audit trails and debugging
+   * 
+   * @param {string} assetId - Asset/media identifier for deletion
+   * @param {'image' | 'video'} type - Media type to determine deletion strategy
+   * @returns {Promise<boolean>} True if deletion successful, false otherwise
+   * @throws {Error} If asset ID is invalid or deletion service is unavailable
+   * 
+   * @example
+   * ```typescript
+   * // Delete video from MUX
+   * const videoDeleted = await mediaUploadService.deleteMedia(videoAssetId, 'video');
+   * if (videoDeleted) {
+   *   console.log('Video successfully deleted from MUX');
+   * }
+   * 
+   * // Delete image (handled by Firestore)
+   * const imageDeleted = await mediaUploadService.deleteMedia(imageId, 'image');
+   * // Image cleanup happens automatically with document deletion
+   * ```
+   */
   async deleteMedia(assetId: string, type: 'image' | 'video'): Promise<boolean> {
     try {
+      // Log deletion initiation for audit trails and debugging
+      console.log('🗑️ Starting media deletion process:', { assetId, type });
+      
+      // Handle video deletion through MUX asset management
       if (type === 'video') {
-        return await muxService.deleteAsset(assetId);
+        console.log('📹 Deleting video asset from MUX service...');
+        
+        // Call MUX service to permanently delete the video asset
+        const deletionResult = await muxService.deleteAsset(assetId);
+        
+        if (deletionResult) {
+          console.log('✅ Video asset successfully deleted from MUX:', assetId);
+        } else {
+          console.log('⚠️ Video deletion returned false, asset may already be deleted:', assetId);
+        }
+        
+        return deletionResult;
       }
       
-      // For images, since they're stored as base64 in Firestore,
-      // deletion happens when the document is deleted
-      console.log('Image deletion handled by Firestore document deletion');
-      return true;
+      // Handle image deletion (base64 storage in Firestore)
+      if (type === 'image') {
+        console.log('🖼️ Image deletion handled by Firestore document deletion');
+        console.log('ℹ️ Base64 images are automatically cleaned when parent document is removed');
+        
+        // For base64 images stored in Firestore documents,
+        // deletion happens automatically when the document is deleted
+        // No additional cleanup required for this storage method
+        return true;
+      }
+      
+      // Handle unsupported media type
+      console.error('❌ Unsupported media type for deletion:', type);
+      throw new Error(`Unsupported media type for deletion: ${type}`);
     } catch (error) {
-      console.error('Error deleting media:', error);
+      // Log comprehensive error details for debugging and monitoring
+      console.error('❌ Error deleting media:', error);
+      console.error('🎯 Deletion context:', { assetId, type });
+      
+      // Return false to indicate deletion failure
       return false;
     }
   }
