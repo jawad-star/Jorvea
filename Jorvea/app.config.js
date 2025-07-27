@@ -10,6 +10,11 @@ export default {
     scheme: "jorvea",
     userInterfaceStyle: "automatic",
     newArchEnabled: true,
+    splash: {
+      image: "./assets/images/splash-icon.png",
+      resizeMode: "contain",
+      backgroundColor: "#ffffff"
+    },
     ios: {
       googleServicesFile: "./GoogleService-Info.plist",
       supportsTablet: true,
@@ -49,6 +54,8 @@ export default {
       webClientId: process.env.WEB_CLIENT_ID,
       androidClientId: process.env.ANDROID_CLIENT_ID,
       iosClientId: process.env.IOS_CLIENT_ID,
+      muxTokenId: process.env.MUX_TOKEN_ID,
+      muxTokenSecret: process.env.MUX_TOKEN_SECRET,
     }
   }
 };

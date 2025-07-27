@@ -1,0 +1,72 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Allow all authenticated users to read and write to users collection
+    match /users/{userId} {
+      allow read, write: if request.auth != null;
+    }
+    
+    // Allow all authenticated users to read posts, but only the owner to write/update/delete
+    match /posts/{postId} {
+      allow read: if true; // Public read
+      allow create: if request.auth != null;
+      allow update, delete: if request.auth != null && request.auth.uid == resource.data.userId;
+    }
+    
+    // Allow all authenticated users to read reels, but only the owner to write/update/delete
+    match /reels/{reelId} {
+      allow read: if true; // Public read
+      allow create: if request.auth != null;
+      allow update, delete: if request.auth != null && request.auth.uid == resource.data.userId;
+    }
+    
+    // Allow all authenticated users to read stories, but only the owner to write/update/delete
+    match /stories/{storyId} {
+      allow read: if true; // Public read
+      allow create: if request.auth != null;
+      allow update, delete: if request.auth != null && request.auth.uid == resource.data.userId;
+    }
+    
+    // Comments - public read, authenticated write, owner delete
+    match /comments/{commentId} {
+      allow read: if true;
+      allow create: if request.auth != null;
+      allow update, delete: if request.auth != null && request.auth.uid == resource.data.userId;
+    }
+    
+    // Notifications - only the recipient can read/write
+    match /notifications/{notificationId} {
+      allow read, write: if request.auth != null && request.auth.uid == resource.data.userId;
+    }
+    
+    // Follows - authenticated users can read/write
+    match /follows/{followId} {
+      allow read, write: if request.auth != null;
+    }
+    
+    // Likes - authenticated users can read/write
+    match /likes/{likeId} {
+      allow read, write: if request.auth != null;
+    }
+    
+    // User profiles - public read, owner write
+    match /profiles/{profileId} {
+      allow read: if true;
+      allow write: if request.auth != null && request.auth.uid == profileId;
+    }
+    
+    // Messages - only participants can read/write
+    match /messages/{messageId} {
+      allow read, write: if request.auth != null && 
+        (request.auth.uid == resource.data.senderId || 
+         request.auth.uid == resource.data.receiverId);
+    }
+    
+    // Conversations - only participants can read/write
+    match /conversations/{conversationId} {
+      allow read, write: if request.auth != null && 
+        request.auth.uid in resource.data.participants;
+    }
+  }
+}

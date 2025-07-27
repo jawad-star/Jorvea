@@ -1,5 +1,5 @@
 import React from 'react';
-import { router } from 'expo-router';
+import { router, usePathname } from 'expo-router';
 import { useAuth } from '../context/AuthContext';
 import { useEffect } from 'react';
 import LoadingScreen from './LoadingScreen';
@@ -10,24 +10,24 @@ interface AuthGuardProps {
 
 export default function AuthGuard({ children }: AuthGuardProps) {
   const { user, isLoading, isAuthenticated } = useAuth();
+  const pathname = usePathname();
 
   useEffect(() => {
     if (!isLoading) {
       if (!isAuthenticated) {
         // Redirect to sign-in if user is not authenticated
-        router.replace('/sign-in');
+        if (pathname !== '/sign-in') {
+          router.replace('/sign-in');
+        }
       } else if (!user?.emailVerified) {
         // Redirect to email verification if user is not verified
-        router.replace('/email-verification');
-      } else {
-        // User is authenticated and verified - ensure they can't go back to auth screens
-        // Reset the navigation stack to prevent going back
-        if (router.canGoBack()) {
-          router.replace('/');
+        if (pathname !== '/email-verification') {
+          router.replace('/email-verification');
         }
       }
+      // Remove the problematic router.replace('/') call for authenticated users
     }
-  }, [user, isLoading, isAuthenticated]);
+  }, [user, isLoading, isAuthenticated, pathname]);
 
   if (isLoading) {
     return <LoadingScreen />;

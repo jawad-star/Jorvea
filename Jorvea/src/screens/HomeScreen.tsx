@@ -1,6 +1,6 @@
 import React from 'react';
-import TabNavigator from '../components/TabNavigator';
+import AppNavigator from '../components/AppNavigator';
 
 export default function HomeScreen() {
-  return <TabNavigator />;
+  return <AppNavigator />;
 }

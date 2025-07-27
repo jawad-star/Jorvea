@@ -8,33 +8,16 @@ import {
   User
 } from 'firebase/auth';
 import { auth } from '../config/firebase';
-import { authStorage } from '../utils/authStorage';
 
 export async function loginWithEmail(email: string, password: string) {
   const userCredential = await signInWithEmailAndPassword(auth, email, password);
-  
-  // Store auth data in AsyncStorage
-  await authStorage.setAuthToken(userCredential.user.uid);
-  await authStorage.setUserData({
-    uid: userCredential.user.uid,
-    email: userCredential.user.email,
-    emailVerified: userCredential.user.emailVerified,
-  });
-  
+  // Firebase handles auth persistence automatically
   return userCredential;
 }
 
 export async function signUpWithEmail(email: string, password: string) {
   const userCredential = await createUserWithEmailAndPassword(auth, email, password);
-  
-  // Store auth data in AsyncStorage
-  await authStorage.setAuthToken(userCredential.user.uid);
-  await authStorage.setUserData({
-    uid: userCredential.user.uid,
-    email: userCredential.user.email,
-    emailVerified: userCredential.user.emailVerified,
-  });
-  
+  // Firebase handles auth persistence automatically
   return userCredential;
 }
 
@@ -52,7 +35,7 @@ export function reloadUser(user: User) {
 
 export async function logoutUser() {
   await signOut(auth);
-  await authStorage.clearAuthData();
+  // Firebase handles clearing auth state automatically
 }
 
 export function getCurrentUser() {
@@ -64,9 +47,20 @@ export function onAuthStateChange(callback: (user: User | null) => void) {
 }
 
 export async function checkStoredAuth(): Promise<boolean> {
-  return await authStorage.isLoggedIn();
+  // Firebase handles auth persistence automatically
+  // Just return whether current user exists
+  return !!auth.currentUser;
 }
 
 export async function getStoredUserData() {
-  return await authStorage.getUserData();
+  // Firebase handles user data automatically
+  // Just return current user data
+  const user = auth.currentUser;
+  if (!user) return null;
+  
+  return {
+    uid: user.uid,
+    email: user.email,
+    emailVerified: user.emailVerified,
+  };
 }
